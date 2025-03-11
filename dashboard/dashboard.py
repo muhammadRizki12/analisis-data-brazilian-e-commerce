@@ -6,7 +6,7 @@ import datetime as dt
 sns.set(style='dark')
 
 # Import dataset
-all_df = pd.read_csv("all_data.csv")
+all_df = pd.read_csv("dashboard/all_data.csv")
  # change type str/obj -> datetime
 datetime_columns = ["order_approved_at"]
 for column in datetime_columns:

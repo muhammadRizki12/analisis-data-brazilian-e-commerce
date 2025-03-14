@@ -3,6 +3,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import streamlit as st
 import datetime as dt
+
+from babel.numbers import format_currency
+
 sns.set(style='dark')
 
 # Import dataset
@@ -58,35 +61,35 @@ def create_monthly_order(df):
     return monthly_df
 
 def create_rfm(df):
-    now = dt.datetime(2018, 10, 20)
-
-    df['order_purchase_timestamp'] = pd.to_datetime(df['order_purchase_timestamp'])
-    # Group by 'customer_id' and calculate Recency, Frequency, and Monetary
-    recency = (now - df.groupby('customer_id')['order_purchase_timestamp'].max()).dt.days
-    frequency = df.groupby('customer_id')['order_id'].count()
-    monetary = df.groupby('customer_id')['price'].sum()
-
-    # Create a new DataFrame with the calculated metrics
-    rfm = pd.DataFrame({
-        'customer_id': recency.index,
-        'Recency': recency.values,
-        'Frequency': frequency.values,
-        'Monetary': monetary.values
+    rfm_df = df.groupby(by="customer_id", as_index=False).agg({
+        "order_purchase_timestamp": "max",
+        "order_id": "count",
+        # "order_id": "nunique",
+        "price": "sum"
     })
+    rfm_df.columns =["customer_id", "max_order_timestamp", "frequency", "monetary"]
 
-    col_list = ['customer_id', 'Recency', 'Frequency', 'Monetary']
-    rfm.columns = col_list
-    return rfm
+    rfm_df["max_order_timestamp"] = rfm_df["max_order_timestamp"].dt.date
+    recent_date = df["order_purchase_timestamp"].dt.date.max() + dt.timedelta(days=1)
+    rfm_df["recency"] = rfm_df["max_order_timestamp"].apply(lambda x: (recent_date - x).days)
+    rfm_df.drop("max_order_timestamp", axis=1, inplace=True)
+    return rfm_df
 
-# Calling function
-sum_order_df = create_sum_order_items_df(all_df)
-review_scores_df, rating_service= create_review_score(all_df)
-monthly_df = create_monthly_order(all_df)
-rfm_df=create_rfm(all_df)
+all_df["order_purchase_timestamp"] = pd.to_datetime(all_df["order_purchase_timestamp"])
+min_date = all_df["order_purchase_timestamp"].min()
+max_date = all_df["order_purchase_timestamp"].max()
 
 # SIDEBAR
 with st.sidebar:
-    st.markdown("## 📊 Dashboard E-commerce")
+    st.markdown("## 📊 Dashboard E-commerce Data")
+
+    start_date, end_date =st.date_input(
+        label='Rentang Waktu',
+        min_value=min_date,
+        max_value=max_date,
+        value=[min_date, max_date]
+    )
+
     st.markdown("---")
 
     st.markdown("#### 📝 Belajar Analisis Data dengan Python")
@@ -101,6 +104,14 @@ with st.sidebar:
 
     st.markdown("---")
     st.caption("© 2025 Muhammad Rizki")
+
+main_df = all_df[(all_df["order_purchase_timestamp"] >= str(start_date)) &
+                  (all_df["order_purchase_timestamp"] <= str(end_date))]
+# Calling function
+sum_order_df = create_sum_order_items_df(main_df)
+review_scores_df, rating_service= create_review_score(main_df)
+monthly_df = create_monthly_order(main_df)
+rfm_df = create_rfm(main_df)
 
 st.header('Brazilian E-Commerce')
 
@@ -155,7 +166,7 @@ barplot = sns.barplot(
 for i, patch in enumerate(barplot.patches):
     score = review_scores_df.index[i]
     if score == most_common_score:
-        patch.set_facecolor("#068DA9")  # warna biru
+        patch.set_facecolor("#90CAF9")  # warna biru
 
 ax.set_title("Rating by customers for service", fontsize=30)
 ax.set_xlabel("Rating")
@@ -194,20 +205,33 @@ colors = ["#90CAF9", "#D3D3D3", "#D3D3D3", "#D3D3D3", "#D3D3D3"]
 # beri comentar pada ax[index].set_xticks([]) bila ingin melihat customer nya by id
 
 ######################################3
+col1, col2, col3 = st.columns(3)
+with col1:
+    avg_recency = round(rfm_df.recency.mean(), 1)
+    st.metric("Average Recency (days)", value=avg_recency)
+
+with col2:
+    avg_frequency = round(rfm_df.frequency.mean(), 2)
+    st.metric("Average Frequency", value=avg_frequency)
+
+with col3:
+    avg_frequency = format_currency(rfm_df.monetary.mean(), "AUD", locale='es_CO')
+    # avg_frequency = format_currency(rfm_df.monetary.mean(), "BRL", locale='pt_BR')
+    st.metric("Average Monetary", value=avg_frequency)
 tab1, tab2, tab3 = st.tabs(["Recency", "Frequency", "Monetary"])
 
 with tab1:
     plt.figure(figsize=(16, 8))
     sns.barplot(
-        y="Recency",
+        y="recency",
         x="customer_id",
-        data=rfm_df.sort_values(by="Recency", ascending=True).head(5),
+        data=rfm_df.sort_values(by="recency", ascending=False).head(5),
         palette=colors,
 
     )
-    plt.title("By Recency (Day)", loc="center", fontsize=18)
+    plt.title("Top 5 Customers By Recency (days)", loc="center", fontsize=18)
     plt.ylabel('')
-    plt.xlabel("customer")
+    plt.xlabel("customer_id")
     plt.tick_params(axis='x', labelsize=15)
     plt.xticks([])
     st.pyplot(plt)
@@ -215,15 +239,14 @@ with tab1:
 with tab2:
     plt.figure(figsize=(16, 8))
     sns.barplot(
-        y="Frequency",
+        y="frequency",
         x="customer_id",
-        data=rfm_df.sort_values(by="Frequency", ascending=False).head(5),
+        data=rfm_df.sort_values(by="frequency", ascending=False).head(5),
         palette=colors,
-
     )
     plt.ylabel('')
     plt.xlabel("customer")
-    plt.title("By Frequency", loc="center", fontsize=18)
+    plt.title("Top 5 Customers By Frequency", loc="center", fontsize=18)
     plt.tick_params(axis='x', labelsize=15)
     plt.xticks([])
     st.pyplot(plt)
@@ -231,9 +254,9 @@ with tab2:
 with tab3:
     plt.figure(figsize=(16, 8))
     sns.barplot(
-        y="Monetary",
+        y="monetary",
         x="customer_id",
-        data=rfm_df.sort_values(by="Monetary", ascending=False).head(5),
+        data=rfm_df.sort_values(by="monetary", ascending=False).head(5),
         palette=colors,
     )
     plt.ylabel('')

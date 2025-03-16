@@ -228,7 +228,7 @@ with tab1:
         palette=colors,
 
     )
-    plt.title("Top 5 Customers By Recency (days)", loc="center", fontsize=18)
+    plt.title("Customers By Recency (days)", loc="center", fontsize=18)
     plt.ylabel('')
     plt.xlabel("customer_id")
     plt.tick_params(axis='x', labelsize=15)
@@ -245,7 +245,7 @@ with tab2:
     )
     plt.ylabel('')
     plt.xlabel("customer")
-    plt.title("Top 5 Customers By Frequency", loc="center", fontsize=18)
+    plt.title("Customers By Frequency", loc="center", fontsize=18)
     plt.tick_params(axis='x', labelsize=15)
     plt.xticks([])
     st.pyplot(plt)
@@ -260,7 +260,7 @@ with tab3:
     )
     plt.ylabel('')
     plt.xlabel("customer")
-    plt.title("By Monetary", loc="center", fontsize=18)
+    plt.title("Customers By Monetary", loc="center", fontsize=18)
     plt.tick_params(axis='x', labelsize=15)
     plt.xticks([])
     st.pyplot(plt)
